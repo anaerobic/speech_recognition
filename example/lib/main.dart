@@ -150,9 +150,13 @@ class _MyAppState extends State<MyApp> {
 
   void onRecognitionStarted() => setState(() => _isListening = true);
 
-  void onRecognitionResult(String text) => setState(() => transcription = text);
+  void onRecognitionResult(String result) =>
+      setState(() => transcription = result);
 
-  void onRecognitionComplete() => setState(() => _isListening = false);
+  void onRecognitionComplete(String result) => setState(() {
+        transcription = result;
+        _isListening = false;
+      });
 
   void errorHandler() => activateSpeechRecognizer();
 }
