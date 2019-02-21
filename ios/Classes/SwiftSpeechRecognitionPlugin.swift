@@ -128,15 +128,16 @@ public class SwiftSpeechRecognitionPlugin: NSObject, FlutterPlugin, SFSpeechReco
       var isFinal = false
 
       if let result = result {
-        print("Speech : \(result.bestTranscription.formattedString)")
-        self.speechChannel?.invokeMethod("speech.onSpeech", arguments: result.bestTranscription.formattedString)
-        isFinal = result.isFinal
-        if isFinal {
-          self.speechChannel!.invokeMethod(
-             "speech.onRecognitionComplete",
-             arguments: result.bestTranscription.formattedString
-          )
-        }
+          let transcription = result.bestTranscription
+          print("Speech : \(transcription.formattedString)")
+          self.speechChannel?.invokeMethod("speech.onSpeech", arguments: transcription.formattedString)
+          isFinal = result.isFinal
+          if isFinal {
+              self.speechChannel!.invokeMethod(
+                  "speech.onRecognitionComplete",
+                  arguments: transcription.formattedString
+              )
+          }
       }
 
       if error != nil || isFinal {
@@ -144,6 +145,10 @@ public class SwiftSpeechRecognitionPlugin: NSObject, FlutterPlugin, SFSpeechReco
         inputNode.removeTap(onBus: 0)
         self.recognitionRequest = nil
         self.recognitionTask = nil
+        self.speechChannel!.invokeMethod(
+              "speech.onRecognitionComplete",
+              arguments: error
+          )
       }
     }
 
