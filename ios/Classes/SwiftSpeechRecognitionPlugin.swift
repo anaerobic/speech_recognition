@@ -1,6 +1,6 @@
 import Flutter
-import UIKit
 import Speech
+import UIKit
 
 @available(iOS 10.0, *)
 public class SwiftSpeechRecognitionPlugin: NSObject, FlutterPlugin, SFSpeechRecognizerDelegate {
@@ -24,22 +24,22 @@ public class SwiftSpeechRecognitionPlugin: NSObject, FlutterPlugin, SFSpeechReco
 
   private let audioEngine = AVAudioEngine()
 
-  init(channel:FlutterMethodChannel){
+  init(channel: FlutterMethodChannel) {
     speechChannel = channel
     super.init()
   }
 
   public func handle(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
-    //result("iOS " + UIDevice.current.systemVersion)
-    switch (call.method) {
+    // result("iOS " + UIDevice.current.systemVersion)
+    switch call.method {
     case "speech.activate":
-      self.activateRecognition(result: result)
+      activateRecognition(result: result)
     case "speech.listen":
-      self.startRecognition(lang: call.arguments as! String, result: result)
+      startRecognition(lang: call.arguments as! String, result: result)
     case "speech.cancel":
-      self.cancelRecognition(result: result)
+      cancelRecognition(result: result)
     case "speech.stop":
-      self.stopRecognition(result: result)
+      stopRecognition(result: result)
     default:
       result(FlutterMethodNotImplemented)
     }
@@ -97,14 +97,14 @@ public class SwiftSpeechRecognitionPlugin: NSObject, FlutterPlugin, SFSpeechReco
 
   private func stopRecognition(result: FlutterResult) {
     if audioEngine.isRunning {
-      audioEngine.stop()
       recognitionRequest?.endAudio()
+      audioEngine.stop()
+      audioEngine.inputNode.removeTap(onBus: 0)
     }
     result(false)
   }
 
   private func start(lang: String) throws {
-
     cancelRecognition(result: nil)
 
     let audioSession = AVAudioSession.sharedInstance()
@@ -115,7 +115,7 @@ public class SwiftSpeechRecognitionPlugin: NSObject, FlutterPlugin, SFSpeechReco
     recognitionRequest = SFSpeechAudioBufferRecognitionRequest()
 
     let inputNode = audioEngine.inputNode
-    
+
     guard let recognitionRequest = recognitionRequest else {
       fatalError("Unable to created a SFSpeechAudioBufferRecognitionRequest object")
     }
@@ -127,34 +127,31 @@ public class SwiftSpeechRecognitionPlugin: NSObject, FlutterPlugin, SFSpeechReco
     recognitionTask = speechRecognizer.recognitionTask(with: recognitionRequest) { result, error in
       var isFinal = false
 
-      if let result = result {
-          let transcription = result.bestTranscription
-          print("Speech : \(transcription.formattedString)")
-          self.speechChannel?.invokeMethod("speech.onSpeech", arguments: transcription.formattedString)
+      if result != nil {
+        if let result = result {
+          print("Speech : \(result.bestTranscription.formattedString)")
+          self.speechChannel?.invokeMethod("speech.onSpeech", arguments: result.bestTranscription.formattedString)
           isFinal = result.isFinal
           if isFinal {
-              self.speechChannel!.invokeMethod(
-                  "speech.onRecognitionComplete",
-                  arguments: transcription.formattedString
-              )
-          }
-      }
-
-      if error != nil || isFinal {
-        self.audioEngine.stop()
-        inputNode.removeTap(onBus: 0)
-        self.recognitionRequest = nil
-        self.recognitionTask = nil
-        self.speechChannel!.invokeMethod(
+            self.speechChannel!.invokeMethod(
               "speech.onRecognitionComplete",
-              arguments: error
-          )
+              arguments: result.bestTranscription.formattedString
+            )
+          }
+        }
+
+        if error != nil || isFinal {
+          self.audioEngine.stop()
+          inputNode.removeTap(onBus: 0)
+          self.recognitionRequest = nil
+          self.recognitionTask = nil
+        }
       }
     }
 
     let recognitionFormat = inputNode.outputFormat(forBus: 0)
     inputNode.installTap(onBus: 0, bufferSize: 1024, format: recognitionFormat) {
-      (buffer: AVAudioPCMBuffer, when: AVAudioTime) in
+      (buffer: AVAudioPCMBuffer, _: AVAudioTime) in
       self.recognitionRequest?.append(buffer)
     }
 
@@ -165,7 +162,7 @@ public class SwiftSpeechRecognitionPlugin: NSObject, FlutterPlugin, SFSpeechReco
   }
 
   private func getRecognizer(lang: String) -> Speech.SFSpeechRecognizer {
-    switch (lang) {
+    switch lang {
     case "fr_FR":
       return speechRecognizerFr
     case "en_US":
@@ -175,18 +172,18 @@ public class SwiftSpeechRecognitionPlugin: NSObject, FlutterPlugin, SFSpeechReco
     case "it_IT":
       return speechRecognizerIt
     case "es_ES":
-        return speechRecognizerEs
+      return speechRecognizerEs
     default:
       return speechRecognizerFr
     }
   }
 
-  public func speechRecognizer(_ speechRecognizer: SFSpeechRecognizer, availabilityDidChange available: Bool) {
+  public func speechRecognizer(_: SFSpeechRecognizer, availabilityDidChange available: Bool) {
     speechChannel?.invokeMethod("speech.onSpeechAvailability", arguments: available)
   }
 }
 
 // Helper function inserted by Swift 4.2 migrator.
-fileprivate func convertFromAVAudioSessionCategory(_ input: AVAudioSession.Category) -> String {
-	return input.rawValue
+private func convertFromAVAudioSessionCategory(_ input: AVAudioSession.Category) -> String {
+  return input.rawValue
 }
